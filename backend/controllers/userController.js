@@ -13,11 +13,11 @@ const registerUser = asyncHandler(async (req, res) => {
   //Validation
   if (!name || !email || !password) {
     res.status(400);
-    throw new Error("Por favor preencha todos os campos obrigatorios");
+    throw new Error("Por favor preencha todos os campos obrigatórios");
   }
   if (password.length < 6) {
     res.status(400);
-    throw new Error("Password deve conter no minimo 6 caracteres");
+    throw new Error("Password deve conter no mínimo 6 caracteres");
   }
 
   // Check if user email already exists
@@ -60,7 +60,7 @@ const registerUser = asyncHandler(async (req, res) => {
     });
   } else {
     res.status(400);
-    throw new Error("Dados de utilizador invalidos");
+    throw new Error("Dados de utilizador inválidos");
   }
 });
 
@@ -111,7 +111,7 @@ const loginUser = asyncHandler(async (req, res) => {
       token,
     });
   } else {
-    throw new Error("Email ou Password Invalidos");
+    throw new Error("Email ou Password Inválidos");
   }
 });
 
@@ -147,4 +147,88 @@ const getUserData = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { registerUser, loginUser, logoutUser, getUserData };
+// Get Login Status
+const loginStatus = asyncHandler(async (req, res) => {
+  const token = req.cookies.token;
+  if (!token) {
+    return res.json(false);
+  }
+
+  //Verify Token
+  const verified = jwt.verify(token, process.env.JWT_SECRET);
+
+  if (verified) {
+    return res.json(true);
+  }
+  return res.json(false);
+});
+
+const updateUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  if (user) {
+    const { name, email, photo, phone, bio } = user;
+    user.email = email;
+    user.name = req.body.name || name;
+    user.photo = req.body.photo || photo;
+    user.phone = req.body.phone || phone;
+    user.bio = req.body.bio || bio;
+
+    const updatedUser = await user.save();
+    res.status(200).json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      photo: updatedUser.photo,
+      phone: updatedUser.phone,
+      bio: updatedUser.bio,
+    });
+  } else {
+    res.status(404);
+    throw new Error("Error");
+  }
+});
+
+const changePassword = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    res.status(400);
+    throw new Error("Utilizador não encontrado. Por favor faça login");
+  }
+
+  const { oldPassword, password } = req.body;
+  // Validate
+  if (!oldPassword || !password) {
+    res.status(400);
+    throw new Error("Por favor preencha os campos");
+  }
+
+  // Check if oldPassword is correct
+  const passwordIsCorrect = await bcrypt.compare(oldPassword, user.password);
+
+  // Save new password
+  if (user && passwordIsCorrect) {
+    user.password = password;
+    await user.save();
+    res.status(200).send("Password alterada com sucesso");
+  } else {
+    res.status(400);
+    throw new Error("Password antiga está errada");
+  }
+});
+
+const forgotPassword = asyncHandler(async (req, res) => {
+  res.send("Forgot Password");
+});
+
+module.exports = {
+  registerUser,
+  loginUser,
+  logoutUser,
+  getUserData,
+  loginStatus,
+  updateUser,
+  changePassword,
+  forgotPassword,
+};
